@@ -20,6 +20,9 @@ function App() {
   const [history, setHistory] = useState<Translation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [translatedText, setTranslatedText] = useState('');
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const MAX_CHARS = 5000;
 
   const languages = [
     { code: 'auto', name: 'Detect Language' },
@@ -43,8 +46,24 @@ function App() {
     }
   }, [isDarkMode]);
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const handleCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Kopyalama hatası:', err);
+    }
+  };
+
+  const handleSourceTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    if (text.length <= MAX_CHARS) {
+      setSourceText(text);
+      setError(null);
+    } else {
+      setError(`Maksimum ${MAX_CHARS} karakter girebilirsiniz.`);
+    }
   };
 
   const handleTranslate = async () => {
@@ -52,13 +71,11 @@ function App() {
     
     setIsLoading(true);
     setTranslatedText('');
+    setError(null);
     try {
-      console.log('API isteği gönderiliyor...', {
-        sourceText,
-        sourceLang,
-        targetLang,
-        apiKey: apiKey.substring(0, 10) + '...'
-      });
+      if (!apiKey.startsWith('AI') || apiKey.length < 30) {
+        throw new Error('Geçersiz API anahtarı formatı');
+      }
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`, {
         method: 'POST',
@@ -74,7 +91,8 @@ Important rules:
 1. Preserve the exact meaning and context of the original text
 2. Maintain the tone and style of the original text
 3. Keep any special terms, names, or technical words unchanged
-4. Only provide the direct translation, no explanations or additional text
+4. Use ${isFormal ? 'formal' : 'informal'} language style
+5. Only provide the direct translation, no explanations or additional text
 
 Text to translate:
 ${sourceText}`
@@ -89,12 +107,23 @@ ${sourceText}`
       });
 
       const data = await response.json();
-      console.log('API yanıtı:', data);
       
       if (data.error) {
-        throw new Error(data.error.message || 'Translation failed');
+        if (data.error.status === 'INVALID_ARGUMENT') {
+          throw new Error('API anahtarı geçersiz. Lütfen doğru bir Gemini API anahtarı girin.');
+        } else if (data.error.status === 'PERMISSION_DENIED') {
+          throw new Error('API anahtarı yetkisi reddedildi. Lütfen API anahtarınızın aktif olduğundan emin olun.');
+        } else if (data.error.status === 'RESOURCE_EXHAUSTED') {
+          throw new Error('API kullanım limiti aşıldı. Lütfen daha sonra tekrar deneyin.');
+        } else {
+          throw new Error(data.error.message || 'Çeviri işlemi başarısız oldu.');
+        }
       }
       
+      if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+        throw new Error('API beklenmeyen bir yanıt döndü. Lütfen tekrar deneyin.');
+      }
+
       const translatedText = data.candidates[0].content.parts[0].text;
       setTranslatedText(translatedText);
       
@@ -107,9 +136,15 @@ ${sourceText}`
       };
       
       setHistory(prev => [newTranslation, ...prev]);
-    } catch (error) {
-      console.error('Translation error:', error);
-      alert('Translation failed. Please check your API key and try again.');
+    } catch (error: any) {
+      console.error('Çeviri hatası:', error);
+      if (error.message.includes('API')) {
+        setError(error.message);
+      } else if (!navigator.onLine) {
+        setError('İnternet bağlantınızı kontrol edin ve tekrar deneyin.');
+      } else {
+        setError('Bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -137,14 +172,19 @@ ${sourceText}`
         </div>
 
         {/* API Key Input */}
-        <div className="mb-6">
+        <div className="mb-6 relative">
           <input
             type="password"
-            placeholder="Enter your Google Gemini API Key"
+            placeholder="Google Gemini API Anahtarınızı girin"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-colors"
           />
+          {!apiKey && (
+            <p className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
+              Çeviri yapabilmek için API anahtarı gereklidir
+            </p>
+          )}
         </div>
 
         {/* Main Translation Interface */}
@@ -163,16 +203,19 @@ ${sourceText}`
                   </option>
                 ))}
               </select>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {sourceText.length} characters
+              <span className={`text-sm ${sourceText.length >= MAX_CHARS ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                {sourceText.length}/{MAX_CHARS}
               </span>
             </div>
             <textarea
               value={sourceText}
-              onChange={(e) => setSourceText(e.target.value)}
-              placeholder="Enter text to translate..."
+              onChange={handleSourceTextChange}
+              placeholder="Çevrilecek metni girin..."
               className="w-full h-64 p-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 resize-none transition-colors"
             />
+            {error && (
+              <p className="text-red-500 text-sm mt-2">{error}</p>
+            )}
           </div>
 
           {/* Target Section */}
@@ -198,13 +241,19 @@ ${sourceText}`
                       : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
                   }`}
                 >
-                  {isFormal ? 'Formal' : 'Informal'}
+                  {isFormal ? 'Resmi Dil' : 'Günlük Dil'}
                 </button>
                 <button
                   onClick={() => handleCopy(translatedText)}
-                  className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+                  className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 relative"
+                  disabled={!translatedText}
                 >
-                  <Copy className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  {copySuccess ? (
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded">
+                      Kopyalandı!
+                    </div>
+                  ) : null}
+                  <Copy className={`w-5 h-5 ${translatedText ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} />
                 </button>
               </div>
             </div>
@@ -217,7 +266,7 @@ ${sourceText}`
                 ) : translatedText ? (
                   translatedText
                 ) : (
-                  "Translation will appear here..."
+                  "Çeviri burada görünecek..."
                 )}
               </div>
             </div>
@@ -228,11 +277,20 @@ ${sourceText}`
         <div className="mt-6 flex justify-center">
           <button
             onClick={handleTranslate}
-            disabled={!sourceText.trim() || !apiKey}
+            disabled={!sourceText.trim() || !apiKey || isLoading}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <ArrowRightLeft className="w-5 h-5" />
-            <span>Translate</span>
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>Çevriliyor...</span>
+              </>
+            ) : (
+              <>
+                <ArrowRightLeft className="w-5 h-5" />
+                <span>Çevir</span>
+              </>
+            )}
           </button>
         </div>
 
