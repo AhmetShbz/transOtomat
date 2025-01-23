@@ -68,11 +68,20 @@ function App() {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are a professional translator. Translate the following text from ${languages.find(l => l.code === sourceLang)?.name || 'auto-detected language'} to ${languages.find(l => l.code === targetLang)?.name}. Only respond with the translation, no additional text or explanations:\n\n${sourceText}`
+              text: `You are a professional translator. Your task is to translate the following text from ${languages.find(l => l.code === sourceLang)?.name || 'auto-detected language'} to ${languages.find(l => l.code === targetLang)?.name}. 
+
+Important rules:
+1. Preserve the exact meaning and context of the original text
+2. Maintain the tone and style of the original text
+3. Keep any special terms, names, or technical words unchanged
+4. Only provide the direct translation, no explanations or additional text
+
+Text to translate:
+${sourceText}`
             }]
           }],
           generationConfig: {
-            temperature: 0.1,
+            temperature: 0,
             topK: 1,
             topP: 1
           }
