@@ -68,11 +68,11 @@ function App() {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `Translate to ${languages.find(l => l.code === targetLang)?.name}: ${sourceText}`
+              text: `You are a professional translator. Translate the following text from ${languages.find(l => l.code === sourceLang)?.name || 'auto-detected language'} to ${languages.find(l => l.code === targetLang)?.name}. Only respond with the translation, no additional text or explanations:\n\n${sourceText}`
             }]
           }],
           generationConfig: {
-            temperature: 0,
+            temperature: 0.1,
             topK: 1,
             topP: 1
           }
