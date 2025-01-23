@@ -201,7 +201,7 @@ ${sourceText}`
                   {isFormal ? 'Formal' : 'Informal'}
                 </button>
                 <button
-                  onClick={() => handleCopy("Translated text")}
+                  onClick={() => handleCopy(translatedText)}
                   className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
                 >
                   <Copy className="w-5 h-5 text-gray-600 dark:text-gray-400" />
