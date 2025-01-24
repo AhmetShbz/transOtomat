@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, Moon, Copy, RotateCcw, History, Languages, ArrowRightLeft } from 'lucide-react';
+import { Sun, Moon, Copy, RotateCcw, History, Languages, ArrowRightLeft, Settings } from 'lucide-react';
 
 interface Translation {
   sourceText: string;
@@ -12,6 +12,7 @@ interface Translation {
 function App() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [apiKey, setApiKey] = useState('AIzaSyDVYqPVUOz4LB_0oEV9g77aoDDcwEp854A');
+  const [showSettings, setShowSettings] = useState(false);
   const [sourceText, setSourceText] = useState('');
   const [sourceLang, setSourceLang] = useState('auto');
   const [targetLang, setTargetLang] = useState('en');
@@ -21,6 +22,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [translatedText, setTranslatedText] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
+  const [historyCopySuccess, setHistoryCopySuccess] = useState<{index: number, type: 'source' | 'target'} | null>(null);
   const [error, setError] = useState<string | null>(null);
   const MAX_CHARS = 5000;
 
@@ -51,6 +53,16 @@ function App() {
       await navigator.clipboard.writeText(text);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Kopyalama hatası:', err);
+    }
+  };
+
+  const handleHistoryCopy = async (text: string, index: number, type: 'source' | 'target') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setHistoryCopySuccess({ index, type });
+      setTimeout(() => setHistoryCopySuccess(null), 2000);
     } catch (err) {
       console.error('Kopyalama hatası:', err);
     }
@@ -152,6 +164,42 @@ ${sourceText}`
 
   return (
     <div className={`min-h-screen transition-colors duration-200 ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Ayarlar</h2>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Google Gemini API Anahtarı
+                </label>
+                <input
+                  type="password"
+                  placeholder="API anahtarınızı girin"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-colors"
+                />
+                {!apiKey && (
+                  <p className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
+                    Çeviri yapabilmek için API anahtarı gereklidir
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -159,32 +207,26 @@ ${sourceText}`
             <Languages className="w-8 h-8 text-blue-600 dark:text-blue-400" />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Universal Translator</h1>
           </div>
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          >
-            {isDarkMode ? (
-              <Sun className="w-6 h-6 text-yellow-400" />
-            ) : (
-              <Moon className="w-6 h-6 text-gray-600" />
-            )}
-          </button>
-        </div>
-
-        {/* API Key Input */}
-        <div className="mb-6 relative">
-          <input
-            type="password"
-            placeholder="Google Gemini API Anahtarınızı girin"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-colors"
-          />
-          {!apiKey && (
-            <p className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
-              Çeviri yapabilmek için API anahtarı gereklidir
-            </p>
-          )}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowSettings(true)}
+              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              title="Ayarlar"
+            >
+              <Settings className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            </button>
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              title={isDarkMode ? "Aydınlık Mod" : "Karanlık Mod"}
+            >
+              {isDarkMode ? (
+                <Sun className="w-6 h-6 text-yellow-400" />
+              ) : (
+                <Moon className="w-6 h-6 text-gray-600" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Main Translation Interface */}
@@ -315,8 +357,34 @@ ${sourceText}`
                     <span>{new Date(item.timestamp).toLocaleString()}</span>
                     <span>{item.sourceLang} → {item.targetLang}</span>
                   </div>
-                  <p className="text-gray-900 dark:text-white">{item.sourceText}</p>
-                  <p className="text-gray-600 dark:text-gray-300 mt-2">{item.targetText}</p>
+                  <div className="relative">
+                    <p 
+                      onClick={() => handleHistoryCopy(item.sourceText, index, 'source')}
+                      className="text-gray-900 dark:text-white cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded transition-colors"
+                      title="Kopyalamak için tıklayın"
+                    >
+                      {item.sourceText}
+                    </p>
+                    {historyCopySuccess?.index === index && historyCopySuccess.type === 'source' && (
+                      <div className="absolute right-2 top-2 bg-black text-white text-xs py-1 px-2 rounded">
+                        Kopyalandı!
+                      </div>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <p 
+                      onClick={() => handleHistoryCopy(item.targetText, index, 'target')}
+                      className="text-gray-600 dark:text-gray-300 mt-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded transition-colors"
+                      title="Kopyalamak için tıklayın"
+                    >
+                      {item.targetText}
+                    </p>
+                    {historyCopySuccess?.index === index && historyCopySuccess.type === 'target' && (
+                      <div className="absolute right-2 top-2 bg-black text-white text-xs py-1 px-2 rounded">
+                        Kopyalandı!
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
