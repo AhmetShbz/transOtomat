@@ -97,23 +97,18 @@ function App() {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are a professional translator. Your task is to translate the following text from ${languages.find(l => l.code === sourceLang)?.name || 'auto-detected language'} to ${languages.find(l => l.code === targetLang)?.name}. 
+              text: `Translate this ${isFormal ? 'formally' : 'informally'} from ${languages.find(l => l.code === sourceLang)?.name || 'auto-detected language'} to ${languages.find(l => l.code === targetLang)?.name}:
 
-Important rules:
-1. Preserve the exact meaning and context of the original text
-2. Maintain the tone and style of the original text
-3. Keep any special terms, names, or technical words unchanged
-4. Use ${isFormal ? 'formal' : 'informal'} language style
-5. Only provide the direct translation, no explanations or additional text
+${sourceText}
 
-Text to translate:
-${sourceText}`
+Note: Only return the translation, nothing else.`
             }]
           }],
           generationConfig: {
             temperature: 0,
             topK: 1,
-            topP: 1
+            topP: 1,
+            maxOutputTokens: 1000
           }
         })
       });
@@ -201,11 +196,18 @@ ${sourceText}`
       )}
 
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center space-x-2">
+        {/* Header - Mobil için özelleştirildi */}
+        <div className="flex justify-between items-center mb-8 lg:mb-8">
+          <div className="lg:flex items-center space-x-2 hidden">
             <Languages className="w-8 h-8 text-blue-600 dark:text-blue-400" />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Universal Translator</h1>
+          </div>
+          {/* Mobil Header */}
+          <div className="flex items-center space-x-2 lg:hidden">
+            <button className="p-2">
+              <ArrowRightLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            </button>
+            <span className="text-lg font-medium text-gray-900 dark:text-white">Ana Sayfa</span>
           </div>
           <div className="flex items-center space-x-2">
             <button
@@ -229,15 +231,21 @@ ${sourceText}`
           </div>
         </div>
 
-        {/* Main Translation Interface */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Main Translation Interface - Mobil için özelleştirildi */}
+        <div className="grid grid-cols-1 gap-4">
           {/* Source Section */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
+          <div className="space-y-2">
+            <textarea
+              value={sourceText}
+              onChange={handleSourceTextChange}
+              placeholder="Çevrilecek metni girin..."
+              className="w-full h-32 lg:h-64 p-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent dark:bg-gray-800/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 resize-none transition-colors text-lg"
+            />
+            <div className="flex justify-between items-center px-2">
               <select
                 value={sourceLang}
                 onChange={(e) => setSourceLang(e.target.value)}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                className="p-2 rounded-lg bg-transparent dark:bg-transparent text-gray-900 dark:text-white border-none text-sm focus:ring-0"
               >
                 {languages.map((lang) => (
                   <option key={lang.code} value={lang.code}>
@@ -249,24 +257,43 @@ ${sourceText}`
                 {sourceText.length}/{MAX_CHARS}
               </span>
             </div>
-            <textarea
-              value={sourceText}
-              onChange={handleSourceTextChange}
-              placeholder="Çevrilecek metni girin..."
-              className="w-full h-64 p-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 resize-none transition-colors"
-            />
-            {error && (
-              <p className="text-red-500 text-sm mt-2">{error}</p>
-            )}
+          </div>
+
+          {/* Çevir Butonu - Mobil */}
+          <div className="flex justify-center lg:hidden">
+            <button
+              onClick={handleTranslate}
+              disabled={!sourceText.trim() || !apiKey || isLoading}
+              className="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg"
+            >
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                <ArrowRightLeft className="w-6 h-6" />
+              )}
+            </button>
           </div>
 
           {/* Target Section */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
+          <div className="space-y-2">
+            <div className="relative h-32 lg:h-64">
+              <div className="w-full h-full p-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent dark:bg-gray-800/50 text-gray-900 dark:text-white overflow-y-auto text-lg">
+                {isLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  </div>
+                ) : translatedText ? (
+                  translatedText
+                ) : (
+                  "Çeviri burada görünecek..."
+                )}
+              </div>
+            </div>
+            <div className="flex justify-between items-center px-2">
               <select
                 value={targetLang}
                 onChange={(e) => setTargetLang(e.target.value)}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                className="p-2 rounded-lg bg-transparent dark:bg-transparent text-gray-900 dark:text-white border-none text-sm focus:ring-0"
               >
                 {languages.filter(lang => lang.code !== 'auto').map((lang) => (
                   <option key={lang.code} value={lang.code}>
@@ -299,24 +326,11 @@ ${sourceText}`
                 </button>
               </div>
             </div>
-            <div className="relative h-64">
-              <div className="w-full h-full p-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white overflow-y-auto">
-                {isLoading ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                  </div>
-                ) : translatedText ? (
-                  translatedText
-                ) : (
-                  "Çeviri burada görünecek..."
-                )}
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Translation Button */}
-        <div className="mt-6 flex justify-center">
+        {/* Çevir Butonu - Desktop */}
+        <div className="mt-6 justify-center hidden lg:flex">
           <button
             onClick={handleTranslate}
             disabled={!sourceText.trim() || !apiKey || isLoading}
